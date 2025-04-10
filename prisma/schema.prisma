@@ -1,0 +1,153 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  name               String?
+  email              String?              @unique
+  emailVerified      DateTime?
+  image              String?
+  password           String?
+  verificationCode   String?
+  verificationExpires DateTime?
+  status             String?              @default("offline")
+  statusMessage      String?
+  githubUsername     String?
+  geminiApiKey       String?
+  accounts           Account[]
+  sessions           Session[]
+  sentMessages       Message[]            @relation("SentMessages")
+  receivedMessages   Message[]            @relation("ReceivedMessages")
+  groupMemberships   GroupMember[]
+  communityMemberships CommunityMember[]
+  createdGroups      Group[]
+  createdCommunities Community[]
+  activityLogs       ActivityLog[]
+  settings           UserSettings?
+}
+
+model UserSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  theme              String   @default("system")
+  notificationsEnabled Boolean @default(true)
+  soundEnabled       Boolean  @default(true)
+  encryptionEnabled  Boolean  @default(true)
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  messageId   String   @unique
+  senderId    String
+  recipientId String
+  content     String
+  type        String   @default("text")
+  mediaId     String?
+  replyToId   String?
+  status      String   @default("sent")
+  sentAt      DateTime @default(now())
+  deliveredAt DateTime?
+  seenAt      DateTime?
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+}
+
+model Group {
+  id          String        @id @default(cuid())
+  groupId     String        @unique
+  name        String
+  description String?
+  avatar      String?
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  members     GroupMember[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model Community {
+  id          String            @id @default(cuid())
+  communityId String            @unique
+  name        String
+  description String?
+  avatar      String?
+  coverImage  String?
+  isPrivate   Boolean           @default(false)
+  createdById String
+  createdBy   User              @relation(fields: [createdById], references: [id])
+  members     CommunityMember[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model CommunityMember {
+  id          String    @id @default(cuid())
+  communityId String
+  userId      String
+  role        String    @default("member")
+  joinedAt    DateTime  @default(now())
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  ipAddress String?
+  userAgent String?
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
