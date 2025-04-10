@@ -52,17 +52,23 @@ export function AIAssistDialog({ isOpen, onClose, onSendMessage }: AIAssistDialo
       })
 
       if (!res.ok) {
-        throw new Error("Failed to generate AI response")
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to generate AI response")
       }
 
       const data = await res.json()
+
+      if (!data.data) {
+        throw new Error("Invalid response from API")
+      }
+
       setResponse(data.data)
     } catch (error) {
       console.error("AI error:", error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to generate AI response. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate AI response. Please try again.",
       })
     } finally {
       setIsLoading(false)

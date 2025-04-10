@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/dashboard-shell"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/components/ui/use-toast"
 
 interface Log {
   id: string
@@ -39,56 +40,75 @@ export function LogsView() {
     }
   }, [session])
 
+  // Replace mock data with API calls in the fetchLogs function
   const fetchLogs = async () => {
     setIsLoading(true)
     try {
-      // In a real app, you would fetch logs from your API
-      // For demo purposes, we'll generate mock data
-      const mockLogs = generateMockLogs()
-      setLogs(mockLogs)
-      setFilteredLogs(mockLogs)
+      if (!session?.user?.id) {
+        throw new Error("User not authenticated")
+      }
+
+      // Get user's activity logs from API
+      const response = await fetch("/api/logs")
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch logs")
+      }
+
+      const data = await response.json()
+
+      if (!data.data) {
+        throw new Error("Invalid response from API")
+      }
+
+      // Transform API response to match our component's expected format
+      const logsData = data.data.map((log: any) => ({
+        id: log.id,
+        action: log.action,
+        details: log.details,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        timestamp: log.timestamp,
+        severity: determineSeverity(log.action),
+      }))
+
+      setLogs(logsData)
+      setFilteredLogs(logsData)
     } catch (error) {
       console.error("Error fetching logs:", error)
+      toast({
+        variant: "destructive",
+        title: "Failed to load logs",
+        description: "Please try again later",
+      })
+      // Fallback to empty array if API fails
+      setLogs([])
+      setFilteredLogs([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const generateMockLogs = (): Log[] => {
-    const actions = [
-      { action: "Login", details: "Successful login", severity: "success" },
-      { action: "Message sent", details: "Message sent to John Doe", severity: "info" },
-      { action: "File upload", details: "Uploaded image.jpg (2.5MB)", severity: "info" },
-      { action: "Failed login", details: "Invalid credentials", severity: "error" },
-      { action: "API key generated", details: "New API key generated", severity: "info" },
-      { action: "Group created", details: "Created group 'Frontend Developers'", severity: "info" },
-      { action: "Message deleted", details: "Message deleted from chat with Jane Smith", severity: "warning" },
-      { action: "Password changed", details: "Password successfully changed", severity: "success" },
-      { action: "Rate limit exceeded", details: "Too many requests", severity: "error" },
-      { action: "Session expired", details: "User session expired", severity: "warning" },
-    ]
-
-    const mockLogs: Log[] = []
-    const now = new Date()
-
-    for (let i = 0; i < 50; i++) {
-      const randomAction = actions[Math.floor(Math.random() * actions.length)]
-      const date = new Date(now)
-      date.setHours(date.getHours() - Math.floor(Math.random() * 72))
-
-      mockLogs.push({
-        id: `log-${i}`,
-        action: randomAction.action,
-        details: randomAction.details,
-        ipAddress: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        timestamp: date.toISOString(),
-        severity: randomAction.severity as "info" | "warning" | "error" | "success",
-      })
+  // Helper function to determine log severity based on action
+  const determineSeverity = (action: string): "info" | "warning" | "error" | "success" => {
+    if (
+      action.includes("Login") ||
+      action.includes("Register") ||
+      action.includes("Created") ||
+      action.includes("Updated")
+    ) {
+      return "success"
     }
 
-    // Sort by timestamp (newest first)
-    return mockLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    if (action.includes("Failed") || action.includes("Error") || action.includes("Invalid")) {
+      return "error"
+    }
+
+    if (action.includes("Deleted") || action.includes("Removed") || action.includes("Expired")) {
+      return "warning"
+    }
+
+    return "info"
   }
 
   useEffect(() => {
@@ -178,12 +198,7 @@ export function LogsView() {
 
   return (
     <DashboardShell>
-      <DashboardHeader heading="Activity Logs" text="View and analyze your account activity">
-        <Button variant="outline" onClick={handleExportLogs}>
-          <Download className="mr-2 h-4 w-4" />
-          Export Logs
-        </Button>
-      </DashboardHeader>
+      <DashboardHeader/>
       <div className="grid gap-4">
         <Card>
           <CardHeader>

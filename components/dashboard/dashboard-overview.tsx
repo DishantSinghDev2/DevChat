@@ -5,11 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { MessageSquare, Users, Globe, Bot, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { analyticsApi } from "@/lib/api-client"
 
 export function DashboardOverview() {
   const { data: session } = useSession()
-
-  const stats = [
+  const [stats, setStats] = useState([
     {
       title: "Active Chats",
       value: "12",
@@ -38,9 +39,8 @@ export function DashboardOverview() {
       icon: <Bot className="h-5 w-5 text-muted-foreground" />,
       href: "/dashboard/ai",
     },
-  ]
-
-  const recentActivities = [
+  ])
+  const [recentActivities, setRecentActivities] = useState([
     {
       id: 1,
       type: "message",
@@ -65,7 +65,128 @@ export function DashboardOverview() {
       description: "You asked Gemini AI about React hooks",
       time: "2 hours ago",
     },
-  ]
+  ])
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchDashboardData()
+    }
+  }, [session])
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch user statistics
+      const statsResponse = await analyticsApi.getUserStats(session?.user?.id || "")
+
+      if (!statsResponse.data || !statsResponse.data.data) {
+        throw new Error("Failed to fetch user statistics")
+      }
+
+      const statsData = statsResponse.data.data
+
+      // Update stats with real data
+      setStats([
+        {
+          title: "Active Chats",
+          value: statsData.activeChatsCount.toString(),
+          description: "Direct conversations",
+          icon: <MessageSquare className="h-5 w-5 text-muted-foreground" />,
+          href: "/dashboard/chats",
+        },
+        {
+          title: "Groups",
+          value: statsData.groupsCount.toString(),
+          description: "Group conversations",
+          icon: <Users className="h-5 w-5 text-muted-foreground" />,
+          href: "/dashboard/groups",
+        },
+        {
+          title: "Communities",
+          value: statsData.communitiesCount.toString(),
+          description: "Community memberships",
+          icon: <Globe className="h-5 w-5 text-muted-foreground" />,
+          href: "/dashboard/communities",
+        },
+        {
+          title: "AI Interactions",
+          value: statsData.aiInteractionsCount.toString(),
+          description: "Gemini AI conversations",
+          icon: <Bot className="h-5 w-5 text-muted-foreground" />,
+          href: "/dashboard/ai",
+        },
+      ])
+
+      // Fetch recent activities
+      const logsResponse = await fetch("/api/logs?limit=5")
+
+      if (!logsResponse.ok) {
+        throw new Error("Failed to fetch activity logs")
+      }
+
+      const logsData = await logsResponse.json()
+
+      if (!logsData.data) {
+        throw new Error("Invalid response from API")
+      }
+
+      // Transform logs to recent activities format
+      const recentActivitiesData = logsData.data.map((log: any) => ({
+        id: log.id,
+        type: determineActivityType(log.action),
+        description: log.details,
+        time: formatTimeAgo(new Date(log.timestamp)),
+      }))
+
+      setRecentActivities(recentActivitiesData)
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+      // Keep the default data if API fails
+    }
+  }
+
+  // Helper function to determine activity type based on action
+  const determineActivityType = (action: string): string => {
+    if (action.includes("message") || action.includes("Message")) {
+      return "message"
+    }
+
+    if (action.includes("group") || action.includes("Group")) {
+      return "group"
+    }
+
+    if (action.includes("community") || action.includes("Community")) {
+      return "community"
+    }
+
+    if (action.includes("AI") || action.includes("Gemini")) {
+      return "ai"
+    }
+
+    return "other"
+  }
+
+  // Helper function to format time ago
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} seconds ago`
+    }
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} ${diffInMinutes === 1 ? "minute" : "minutes"} ago`
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) {
+      return `${diffInHours} ${diffInHours === 1 ? "hour" : "hours"} ago`
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays} ${diffInDays === 1 ? "day" : "days"} ago`
+  }
 
   return (
     <div className="space-y-6">
