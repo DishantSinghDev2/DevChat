@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Icons } from "@/components/ui/icons"
 import { useToast } from "@/components/ui/use-toast"
+import bowser from "bowser"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 
 const formSchema = z
   .object({
     name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+    username: z.string().min(3, { message: "Username must be at least 3 characters" }),
     email: z.string().email({ message: "Please enter a valid email address" }),
     password: z.string().min(8, { message: "Password must be at least 8 characters" }),
     confirmPassword: z.string(),
@@ -28,10 +30,17 @@ export function RegisterForm() {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
 
+  // using bowser to get devieId
+  const userAgent = typeof window !== "undefined" ? window.navigator.userAgent : ""
+  const browser = bowser.getParser(userAgent)
+  const deviceId = browser.getBrowserName() + " " + browser.getOSName() + " " + browser.getOSVersion()
+
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      username: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -51,6 +60,8 @@ export function RegisterForm() {
           name: values.name,
           email: values.email,
           password: values.password,
+          userName: values.username,
+          deviceId,
         }),
       })
 
@@ -89,6 +100,19 @@ export function RegisterForm() {
               <FormLabel>Name</FormLabel>
               <FormControl>
                 <Input placeholder="John Doe" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username</FormLabel>
+              <FormControl>
+                <Input placeholder="johndoe123" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

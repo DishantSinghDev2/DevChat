@@ -5,7 +5,7 @@ import { sendVerificationEmail } from "@/lib/email"
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json()
+    const { name, email, password, userName, deviceId } = await req.json()
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 })
     }
+
 
     // Hash password
     const hashedPassword = await hash(password, 10)
